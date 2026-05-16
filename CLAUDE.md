@@ -23,11 +23,20 @@ cd ClaudeTest
 ## Building and Running
 
 ```powershell
-# Install dependencies
+# Install dependencies (frontend)
 npm install
 
-# Start development server (Vite)
+# Install backend dependencies
+cd backend && npm install && cd ..
+
+# Start both frontend and backend servers
+npm run dev:all
+
+# Start only frontend (Vite)
 npm run dev
+
+# Start only backend
+npm run dev:backend
 
 # Build for production
 npm build
@@ -40,6 +49,7 @@ npm run test:watch
 ```
 
 The development server runs at `http://localhost:5173` by default.
+The backend server runs at `http://localhost:3001` by default.
 
 ## Testing
 
@@ -72,10 +82,18 @@ npm test -- --coverage
 This is a React application with reusable UI components and Google OAuth authentication. The architecture emphasizes separation of concerns with dedicated layers for authentication state, API integration, and UI components.
 
 ### Auth Architecture
-Authentication uses Google Identity Services via `@react-oauth/google`:
+Authentication uses Google Identity Services via `@react-oauth/google` with a secure backend token exchange:
 - **AuthContext** (`src/auth/AuthContext.jsx`) - Manages user state and login/logout functions
-- **useGoogleAuth** (`src/auth/useGoogleAuth.js`) - Handles Google login flow and userinfo API calls
+- **useGoogleAuth** (`src/auth/useGoogleAuth.js`) - Handles authorization code flow with PKCE
+- **Backend** (`backend/server.js`) - Exchanges authorization codes for tokens securely server-side using HttpOnly cookies
 - **GoogleOAuthProvider** - Top-level wrapper that initializes Google Identity Services
+
+The authorization code flow provides enhanced security:
+1. Frontend receives authorization code from Google (not a token)
+2. Code is sent to backend via HTTPS POST
+3. Backend securely exchanges code for access token using Client Secret
+4. Token is stored in an HttpOnly cookie (inaccessible to JavaScript)
+5. User profile data (name, email, picture) is returned to frontend and stored in React state
 
 Auth state is centralized in `AuthContext`, accessed via the `useAuth()` hook throughout the app.
 
@@ -96,24 +114,36 @@ Auth state is centralized in `AuthContext`, accessed via the `useAuth()` hook th
 
 ### Google OAuth Setup
 
-1. **Get a Google Client ID:**
+1. **Get a Google Client ID and Client Secret:**
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select existing one
    - Go to APIs & Services → Credentials
    - Create OAuth 2.0 Client ID (Web application)
    - Add `http://localhost:5173` to "Authorized JavaScript origins"
-   - Copy the Client ID
+   - Add `http://localhost:3001` to "Authorized redirect URIs" (backend)
+   - Copy both the **Client ID** and **Client Secret**
 
-2. **Add to `.env`:**
+2. **Add credentials to `.env` (frontend):**
    ```
    VITE_GOOGLE_CLIENT_ID=your-client-id-here
+   VITE_API_URL=http://localhost:3001
    ```
    The `.env` file is **not** committed to git. Each developer must create their own.
 
-3. **Access in code:**
-   ```jsx
-   import.meta.env.VITE_GOOGLE_CLIENT_ID
+3. **Add credentials to `backend/.env` (backend):**
    ```
+   GOOGLE_CLIENT_ID=your-client-id-here
+   GOOGLE_CLIENT_SECRET=your-client-secret-here
+   SESSION_SECRET=generate-a-random-string-here
+   FRONTEND_URL=http://localhost:5173
+   ```
+   The `backend/.env` file is **not** committed to git. **Never commit the Client Secret.**
+
+4. **Important Security Notes:**
+   - The Client Secret must ONLY be stored on the backend (`backend/.env`)
+   - Never expose the Client Secret in frontend code or environment variables
+   - The frontend only needs the Client ID (for initiating OAuth)
+   - The backend handles all token exchanges using the Client Secret
 
 ## Common Development Tasks
 
@@ -130,7 +160,7 @@ function MyComponent() {
 }
 ```
 
-The `accessToken` from `useAuth().user` can be used to make authenticated Google API calls.
+**Security Note:** Access tokens are **not** exposed to the frontend. All authenticated API calls to Google must go through the backend using the stored access token (via the HttpOnly session cookie). This prevents token theft via XSS attacks.
 
 ### Using the FeedbackButton Component
 
@@ -157,9 +187,13 @@ ClaudeTest/
 ├── jest.config.js                         # Jest test configuration
 ├── .babelrc                               # Babel configuration for JSX/ES6
 ├── .gitignore                             # Git ignore rules
-├── .env                                   # Environment variables (not committed)
+├── .env                                   # Frontend environment variables (not committed)
 ├── package.json                           # NPM dependencies and scripts
-├── src/
+├── backend/                               # Express.js backend server
+│   ├── server.js                          # OAuth token exchange + session management
+│   ├── package.json                       # Backend dependencies
+│   └── .env                               # Backend environment variables (not committed)
+├── src/                                   # Frontend React application
 │   ├── main.jsx                           # React app entry (Vite)
 │   ├── index.css                          # Global styles
 │   ├── App.jsx                            # Main app component
@@ -170,7 +204,7 @@ ClaudeTest/
 │   ├── auth/
 │   │   ├── AuthContext.jsx                # Auth state provider & useAuth hook
 │   │   ├── AuthContext.test.jsx           # Auth context tests
-│   │   └── useGoogleAuth.js               # Google login hook
+│   │   └── useGoogleAuth.js               # OAuth authorization code flow
 │   └── components/
 │       ├── LoginButton.jsx                # Google Sign-in button
 │       ├── LoginButton.test.jsx           # Login button tests

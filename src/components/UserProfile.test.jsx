@@ -14,6 +14,11 @@ function LoggedInSetupWrapper({ user, children }) {
 }
 
 function renderUserProfile(user = null) {
+  global.fetch = jest.fn().mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ user: null }),
+  });
+
   return render(
     <AuthProvider>
       <LoggedInSetupWrapper user={user}>
@@ -28,54 +33,77 @@ describe('UserProfile', () => {
     name: 'Ada Lovelace',
     email: 'ada@example.com',
     picture: 'https://example.com/avatar.jpg',
-    accessToken: 'token123',
   };
 
-  test('renders nothing when not logged in', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('renders nothing when not logged in', async () => {
     renderUserProfile(null);
-    expect(screen.queryByTestId('user-profile')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByTestId('user-profile')).not.toBeInTheDocument();
+    });
   });
 
-  test('renders user profile when logged in', () => {
+  test('renders user profile when logged in', async () => {
     renderUserProfile(mockUser);
-    expect(screen.getByTestId('user-profile')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('user-profile')).toBeInTheDocument();
+    });
   });
 
-  test('displays user name', () => {
+  test('displays user name', async () => {
     renderUserProfile(mockUser);
-    expect(screen.getByTestId('user-name')).toHaveTextContent('Ada Lovelace');
+    await waitFor(() => {
+      expect(screen.getByTestId('user-name')).toHaveTextContent('Ada Lovelace');
+    });
   });
 
-  test('displays user email', () => {
+  test('displays user email', async () => {
     renderUserProfile(mockUser);
-    expect(screen.getByTestId('user-email')).toHaveTextContent('ada@example.com');
+    await waitFor(() => {
+      expect(screen.getByTestId('user-email')).toHaveTextContent('ada@example.com');
+    });
   });
 
-  test('displays user avatar with correct src', () => {
+  test('displays user avatar with correct src', async () => {
     renderUserProfile(mockUser);
-    const avatar = screen.getByTestId('user-avatar');
-    expect(avatar).toHaveAttribute('src', 'https://example.com/avatar.jpg');
-    expect(avatar).toHaveAttribute('alt', 'Ada Lovelace');
+    await waitFor(() => {
+      const avatar = screen.getByTestId('user-avatar');
+      expect(avatar).toHaveAttribute('src', 'https://example.com/avatar.jpg');
+      expect(avatar).toHaveAttribute('alt', 'Ada Lovelace');
+    });
   });
 
-  test('logout button exists', () => {
+  test('logout button exists', async () => {
     renderUserProfile(mockUser);
-    expect(screen.getByTestId('logout-button')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('logout-button')).toBeInTheDocument();
+    });
   });
 
-  test('logout button has correct aria-label', () => {
+  test('logout button has correct aria-label', async () => {
     renderUserProfile(mockUser);
-    expect(screen.getByTestId('logout-button')).toHaveAttribute('aria-label', 'Sign out');
+    await waitFor(() => {
+      expect(screen.getByTestId('logout-button')).toHaveAttribute('aria-label', 'Sign out');
+    });
   });
 
-  test('logout button is interactive when user is logged in', () => {
+  test('logout button is interactive when user is logged in', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+
     renderUserProfile(mockUser);
+    await waitFor(() => {
+      expect(screen.getByTestId('logout-button')).toBeInTheDocument();
+    });
+
     const logoutBtn = screen.getByTestId('logout-button');
-
-    expect(logoutBtn).toBeInTheDocument();
     expect(logoutBtn).toHaveTextContent('Sign out');
 
-    // Test that button is clickable (doesn't throw)
     expect(() => fireEvent.click(logoutBtn)).not.toThrow();
   });
 });

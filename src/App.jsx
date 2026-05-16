@@ -5,7 +5,23 @@ import { LoginButton } from './components/LoginButton';
 import { UserProfile } from './components/UserProfile';
 import './App.css';
 
+const getClientId = () => {
+  if (typeof process !== 'undefined' && process.env.VITE_GOOGLE_CLIENT_ID) {
+    return process.env.VITE_GOOGLE_CLIENT_ID;
+  }
+  return null;
+};
+
+const getGithubRepoUrl = () => {
+  if (typeof process !== 'undefined' && process.env.VITE_GITHUB_REPO_URL) {
+    return process.env.VITE_GITHUB_REPO_URL;
+  }
+  return null;
+};
+
 function AppContent() {
+  const githubRepoUrl = getGithubRepoUrl();
+
   return (
     <div className="App">
       <header className="App-header">
@@ -13,7 +29,7 @@ function AppContent() {
         <div className="header-controls">
           <UserProfile />
           <LoginButton />
-          <FeedbackButton repositoryUrl="https://github.com/your-org/your-repo" />
+          {githubRepoUrl && <FeedbackButton repositoryUrl={githubRepoUrl} />}
         </div>
       </header>
       <main>
@@ -24,14 +40,17 @@ function AppContent() {
 }
 
 export default function App() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const clientId = getClientId();
 
   if (!clientId) {
-    console.warn('VITE_GOOGLE_CLIENT_ID not set. Auth will not work.');
+    throw new Error(
+      'VITE_GOOGLE_CLIENT_ID is not configured. ' +
+      'Please set it in your .env file. See CLAUDE.md for setup instructions.'
+    );
   }
 
   return (
-    <GoogleOAuthProvider clientId={clientId || 'placeholder'}>
+    <GoogleOAuthProvider clientId={clientId}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>
