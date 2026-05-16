@@ -25,6 +25,11 @@ function renderLoginButton(user = null) {
 describe('LoginButton', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock fetch BEFORE rendering AuthProvider
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
     const mockGoogleLogin = jest.fn();
     useGoogleLogin.mockReturnValue(mockGoogleLogin);
     useGoogleAuth.mockReturnValue({ googleLogin: mockGoogleLogin });

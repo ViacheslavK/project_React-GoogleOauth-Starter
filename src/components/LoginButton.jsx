@@ -2,7 +2,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useGoogleAuth } from '../auth/useGoogleAuth';
 
 export function LoginButton() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { googleLogin } = useGoogleAuth();
 
   if (user) return null;
@@ -13,8 +13,9 @@ export function LoginButton() {
       data-testid="login-button"
       aria-label="Sign in with Google"
       className="login-button"
+      disabled={isLoading}
     >
-      Sign in with Google
+      {isLoading ? 'Signing in...' : 'Sign in with Google'}
     </button>
   );
 }

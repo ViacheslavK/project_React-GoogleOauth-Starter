@@ -2,12 +2,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 
 function TestConsumer() {
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, error, setError, isLoading } = useAuth();
   return (
     <div>
       <div data-testid="user-status">
         {user ? `${user.name} (${user.email})` : 'Not logged in'}
       </div>
+      <div data-testid="error-status">{error || 'No error'}</div>
+      <div data-testid="loading-status">{isLoading ? 'Loading' : 'Not loading'}</div>
       <button
         data-testid="login-test-btn"
         onClick={() =>
@@ -18,6 +20,18 @@ function TestConsumer() {
       </button>
       <button data-testid="logout-test-btn" onClick={logout}>
         Logout
+      </button>
+      <button
+        data-testid="set-error-btn"
+        onClick={() => setError('Test error message')}
+      >
+        Set Error
+      </button>
+      <button
+        data-testid="clear-error-btn"
+        onClick={() => setError(null)}
+      >
+        Clear Error
       </button>
     </div>
   );
@@ -121,5 +135,173 @@ describe('AuthContext', () => {
     }).toThrow('useAuth must be used within AuthProvider');
 
     consoleError.mockRestore();
+  });
+
+  // ============ ERROR STATE TESTS ============
+  test('error state starts as null', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('No error');
+    });
+  });
+
+  test('setError sets error message', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('No error');
+    });
+
+    fireEvent.click(screen.getByTestId('set-error-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('Test error message');
+    });
+  });
+
+  test('setError(null) clears error', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('No error');
+    });
+
+    fireEvent.click(screen.getByTestId('set-error-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('Test error message');
+    });
+
+    fireEvent.click(screen.getByTestId('clear-error-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('error-status')).toHaveTextContent('No error');
+    });
+  });
+
+  // ============ LOADING STATE TESTS ============
+  test('isLoading state exists and can be checked', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading-status')).toBeInTheDocument();
+    });
+  });
+
+  // ============ SESSION RESTORE ERROR HANDLING ============
+  test('handles session restore network error gracefully', async () => {
+    global.fetch.mockRejectedValueOnce(new Error('Network error'));
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-status')).toHaveTextContent('Not logged in');
+    });
+  });
+
+  test('handles session restore bad response (not ok)', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'Unauthorized' }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-status')).toHaveTextContent('Not logged in');
+    });
+  });
+
+  test('restores user session if available', async () => {
+    const mockSessionUser = {
+      name: 'Session User',
+      email: 'session@example.com',
+      picture: 'https://example.com/session.jpg',
+    };
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: mockSessionUser }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-status')).toHaveTextContent('Session User (session@example.com)');
+    });
+  });
+
+  // ============ LOGOUT ERROR HANDLING ============
+  test('logout handles backend error but still clears user', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null }),
+    });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('login-test-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('user-status')).toHaveTextContent('Test User');
+    });
+
+    // Logout fails on backend but should still clear user
+    global.fetch.mockRejectedValueOnce(new Error('Backend error'));
+
+    fireEvent.click(screen.getByTestId('logout-test-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('user-status')).toHaveTextContent('Not logged in');
+    });
   });
 });

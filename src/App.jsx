@@ -3,6 +3,7 @@ import { FeedbackButton } from './FeedbackButton';
 import { AuthProvider } from './auth/AuthContext';
 import { LoginButton } from './components/LoginButton';
 import { UserProfile } from './components/UserProfile';
+import { AuthError } from './components/AuthError';
 import './App.css';
 
 const getClientId = () => {
@@ -24,6 +25,7 @@ function AppContent() {
 
   return (
     <div className="App">
+      <AuthError />
       <header className="App-header">
         <h1>Claude Test App</h1>
         <div className="header-controls">

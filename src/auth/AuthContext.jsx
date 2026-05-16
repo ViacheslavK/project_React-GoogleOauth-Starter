@@ -12,9 +12,13 @@ const getApiUrl = () => {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const apiUrl = getApiUrl();
 
-  const login = (userData) => setUser(userData);
+  const login = (userData) => {
+    setUser(userData);
+    setError(null); // Clear error on successful login
+  };
 
   const logout = async () => {
     try {
@@ -26,6 +30,7 @@ export function AuthProvider({ children }) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      setError(null); // Clear error on logout
     }
   };
 
@@ -52,12 +57,8 @@ export function AuthProvider({ children }) {
     restoreSession();
   }, [apiUrl]);
 
-  if (isLoading) {
-    return null;
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, error, setError, isLoading, setIsLoading }}>
       {children}
     </AuthContext.Provider>
   );

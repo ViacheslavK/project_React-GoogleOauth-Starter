@@ -1,0 +1,76 @@
+.auth-error {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #fee;
+  border: 2px solid #c33;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+  z-index: 1000;
+  max-width: 400px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(420px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.auth-error-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.auth-error-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.auth-error-text {
+  flex: 1;
+  color: #c33;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.auth-error-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #c33;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+.auth-error-close:hover {
+  opacity: 0.7;
+}
+
+.auth-error-close:active {
+  opacity: 0.5;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .auth-error {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    max-width: none;
+  }
+}
