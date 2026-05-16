@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { LoginButton } from './LoginButton';
 import { AuthProvider } from '../auth/AuthContext';
 
@@ -26,7 +26,7 @@ describe('LoginButton', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock fetch BEFORE rendering AuthProvider
-    global.fetch = jest.fn().mockResolvedValueOnce({
+    global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ user: null }),
     });
@@ -35,26 +35,37 @@ describe('LoginButton', () => {
     useGoogleAuth.mockReturnValue({ googleLogin: mockGoogleLogin });
   });
 
-  test('renders button when not logged in', () => {
+  test('renders button when not logged in', async () => {
     renderLoginButton();
-    expect(screen.getByTestId('login-button')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('login-button')).toBeInTheDocument();
+    });
   });
 
-  test('has correct text content', () => {
+  test('has correct text content', async () => {
     renderLoginButton();
-    expect(screen.getByTestId('login-button')).toHaveTextContent('Sign in with Google');
+    await waitFor(() => {
+      expect(screen.getByTestId('login-button')).toHaveTextContent('Sign in with Google');
+    });
   });
 
-  test('has correct aria-label', () => {
+  test('has correct aria-label', async () => {
     renderLoginButton();
-    expect(screen.getByTestId('login-button')).toHaveAttribute('aria-label', 'Sign in with Google');
+    await waitFor(() => {
+      expect(screen.getByTestId('login-button')).toHaveAttribute('aria-label', 'Sign in with Google');
+    });
   });
 
-  test('calls googleLogin on click', () => {
+  test('calls googleLogin on click', async () => {
     const mockGoogleLogin = jest.fn();
     useGoogleAuth.mockReturnValue({ googleLogin: mockGoogleLogin });
 
     renderLoginButton();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-button')).toBeInTheDocument();
+    });
+
     const button = screen.getByTestId('login-button');
     fireEvent.click(button);
 

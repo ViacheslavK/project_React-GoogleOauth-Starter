@@ -1,5 +1,4 @@
 import { useAuth } from '../auth/AuthContext';
-import './AuthError.css';
 
 export function AuthError() {
   const { error, setError } = useAuth();
