@@ -24,7 +24,7 @@ Backend: `http://localhost:3001`
 
 ## Documentation
 
-- [**CLAUDE.md**](docs/CLAUDE.md) — Project guidance and detailed architecture
+- [**CLAUDE.md**](CLAUDE.md) — Project guidance and detailed architecture
 - [**DEV_GUIDE.md**](docs/DEV_GUIDE.md) — Development workflow and common tasks
 - [**USER_GUIDE.md**](docs/USER_GUIDE.md) — User-facing features and usage
 - [**SECURITY_AUDIT.md**](docs/SECURITY_AUDIT.md) — Security analysis and best practices
