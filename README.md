@@ -37,13 +37,15 @@ Backend: `http://localhost:3001`
    - Add `http://localhost:3001` to authorized redirect URIs
 
 2. Create `.env` (frontend):
-   ```
+
+   ```markdown
    VITE_GOOGLE_CLIENT_ID=your-client-id
    VITE_API_URL=http://localhost:3001
    ```
 
 3. Create `backend/.env` (backend):
-   ```
+
+   ```markdown
    GOOGLE_CLIENT_ID=your-client-id
    GOOGLE_CLIENT_SECRET=your-client-secret
    SESSION_SECRET=generate-random-string
@@ -65,17 +67,20 @@ npm test -- --coverage     # With coverage report
 ## Architecture Highlights
 
 **Authorization Code Flow + PKCE:**
+
 - Frontend requests authorization code from Google
 - Backend securely exchanges code for tokens using Client Secret
 - Tokens stored server-side in HttpOnly session cookies
 - Frontend never handles access tokens (prevents XSS attacks)
 
 **Token Refresh:**
+
 - Proactive refresh scheduled 60 seconds before expiry
 - Silent refresh uses stored refresh_token
 - Automatic session expiry detection with user notification
 
 **Backend API:**
+
 - `POST /api/auth/google` — OAuth code exchange
 - `GET /api/auth/user` — Get current session user
 - `POST /api/auth/refresh` — Refresh access token
@@ -83,7 +88,7 @@ npm test -- --coverage     # With coverage report
 
 ## Project Structure
 
-```
+   ```markdown
 ├── README.md                    # This file
 ├── docs/                        # Documentation
 ├── src/                         # React frontend
