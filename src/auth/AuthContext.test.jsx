@@ -304,4 +304,142 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user-status')).toHaveTextContent('Not logged in');
     });
   });
+
+  // ============ SESSION EXPIRY STATE ============
+  test('sessionExpired starts as false', async () => {
+    function ExpiryStatusComponent() {
+      const { sessionExpired } = useAuth();
+      return <div data-testid="expiry-status">{sessionExpired ? 'EXPIRED' : 'VALID'}</div>;
+    }
+
+    render(
+      <AuthProvider>
+        <ExpiryStatusComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('VALID');
+    });
+  });
+
+  test('setSessionExpired(true) sets the flag', async () => {
+    function ExpiryToggleComponent() {
+      const { sessionExpired, setSessionExpired } = useAuth();
+      return (
+        <div>
+          <div data-testid="expiry-status">{sessionExpired ? 'EXPIRED' : 'VALID'}</div>
+          <button data-testid="set-expired-btn" onClick={() => setSessionExpired(true)}>
+            Set Expired
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <ExpiryToggleComponent />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('set-expired-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('EXPIRED');
+    });
+  });
+
+  test('login() resets sessionExpired to false', async () => {
+    function ExpiryLoginComponent() {
+      const { sessionExpired, setSessionExpired, login } = useAuth();
+      return (
+        <div>
+          <div data-testid="expiry-status">{sessionExpired ? 'EXPIRED' : 'VALID'}</div>
+          <button data-testid="set-expired-btn" onClick={() => setSessionExpired(true)}>
+            Set Expired
+          </button>
+          <button
+            data-testid="login-expired-btn"
+            onClick={() => login({ name: 'Test', email: 'test@example.com', picture: 'pic' })}
+          >
+            Login
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <ExpiryLoginComponent />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('set-expired-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('EXPIRED');
+    });
+
+    fireEvent.click(screen.getByTestId('login-expired-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('VALID');
+    });
+  });
+
+  test('logout() resets sessionExpired to false', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user: null, expiry_date: null }),
+    });
+
+    function ExpiryLogoutComponent() {
+      const { user, sessionExpired, setSessionExpired, login, logout } = useAuth();
+      return (
+        <div>
+          <div data-testid="expiry-status">{sessionExpired ? 'EXPIRED' : 'VALID'}</div>
+          <button
+            data-testid="login-logout-btn"
+            onClick={() => login({ name: 'Test', email: 'test@example.com', picture: 'pic' })}
+          >
+            Login
+          </button>
+          <button
+            data-testid="set-expired-logout-btn"
+            onClick={() => setSessionExpired(true)}
+          >
+            Set Expired
+          </button>
+          <button
+            data-testid="logout-expiry-btn"
+            onClick={logout}
+            disabled={!user}
+          >
+            Logout
+          </button>
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <ExpiryLogoutComponent />
+      </AuthProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('login-logout-btn'));
+    await waitFor(() => {
+      // User should be logged in
+    });
+
+    fireEvent.click(screen.getByTestId('set-expired-logout-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('EXPIRED');
+    });
+
+    fireEvent.click(screen.getByTestId('logout-expiry-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('expiry-status')).toHaveTextContent('VALID');
+    });
+  });
 });

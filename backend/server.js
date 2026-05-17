@@ -61,8 +61,13 @@ app.post('/api/auth/google', async (req, res) => {
       email: profile.email,
       picture: profile.picture,
     };
+    req.session.tokens = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date,
+    };
 
-    res.json({ user: req.session.user });
+    res.json({ user: req.session.user, expiry_date: tokens.expiry_date });
   } catch (error) {
     console.error('Auth error:', error);
     res.status(500).json({ error: 'Authentication failed' });
@@ -71,9 +76,37 @@ app.post('/api/auth/google', async (req, res) => {
 
 app.get('/api/auth/user', (req, res) => {
   if (req.session.user) {
-    res.json({ user: req.session.user });
+    res.json({
+      user: req.session.user,
+      expiry_date: req.session.tokens?.expiry_date || null,
+    });
   } else {
-    res.json({ user: null });
+    res.json({ user: null, expiry_date: null });
+  }
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.tokens?.refresh_token) {
+      return res.status(401).json({ error: 'No active session' });
+    }
+
+    client.setCredentials({
+      refresh_token: req.session.tokens.refresh_token,
+    });
+
+    const { credentials } = await client.refreshAccessToken();
+
+    req.session.tokens = {
+      access_token: credentials.access_token,
+      refresh_token: credentials.refresh_token || req.session.tokens.refresh_token,
+      expiry_date: credentials.expiry_date,
+    };
+
+    res.json({ success: true, expiry_date: credentials.expiry_date });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({ error: 'Token refresh failed' });
   }
 });
 

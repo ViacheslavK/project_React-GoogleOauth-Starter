@@ -53,7 +53,7 @@ The backend server runs at `http://localhost:3001` by default.
 
 ## Testing
 
-This project uses Jest and React Testing Library for comprehensive unit tests. **Current test coverage: 56 tests across 7 test suites, all passing.**
+This project uses Jest and React Testing Library for comprehensive unit tests. **Current test coverage: 79 tests across 10 test suites, all passing.**
 
 ### Test Architecture Patterns
 
@@ -72,6 +72,12 @@ This project uses Jest and React Testing Library for comprehensive unit tests. *
 - Use `renderHook()` with `wrapper` for testing hooks in isolation
 - Wrap async operations in `await act(async () => { ... })`
 - For components that use hooks internally, prefer `render()` over `renderHook()` to test full component behavior
+
+**Fake timer pattern (for time-based behavior):**
+- Use `jest.useFakeTimers()` in `beforeEach()` and `jest.useRealTimers()` in `afterEach()` to control time
+- Scope fake timers to specific test suites or describe blocks, NOT globally in `setupTests.js`
+- Use `jest.advanceTimersByTime(ms)` wrapped in `act()` to advance time
+- Example: Test proactive token refresh that fires 60 seconds before token expiry
 
 ```powershell
 # Run all tests
@@ -92,16 +98,23 @@ npm test -- --coverage
 
 ### Test Files & Coverage
 
-**OAuth & Auth (40 tests):**
-- `src/auth/AuthContext.test.jsx` (12 tests) - State initialization, error handling, loading states, session restoration
-- `src/auth/useGoogleAuth.test.js` (13 tests) - Hook structure, callbacks, error handling, token refresh
+**OAuth & Auth (43 tests):**
+- `src/auth/AuthContext.test.jsx` (16 tests) - State initialization, error handling, loading states, session restoration, sessionExpired state
+- `src/auth/useGoogleAuth.test.js` (14 tests) - Hook structure, callbacks, error handling, silent refresh, session expiry integration
 - `src/auth/error-handling.test.js` (12 tests) - Network errors, HTTP status codes, malformed responses, timeouts
 - `src/components/AuthError.test.jsx` (6 tests) - Error display, dismissal, accessibility
 
-**Components (12 tests):**
+**Components (13 tests):**
 - `src/components/LoginButton.test.jsx` (4 tests) - Visibility, loading state, click handling
 - `src/components/LoginButton.test.comprehensive.jsx` (7 tests) - Extended button behavior
 - `src/components/UserProfile.test.jsx` - Profile display and logout
+- `src/components/SessionExpiredBanner.test.jsx` (6 tests) - Session expiry banner display, dismissal, accessibility
+
+**Utilities (7 tests):**
+- `src/utils/fetchWithAuth.test.js` (7 tests) - 401 response handling, callback invocation, credentials merging
+
+**Token Refresh (5 tests):**
+- `src/auth/token-refresh.test.js` (5 tests) - Timer scheduling, expiry detection, refresh triggering
 
 **Other (4 tests):**
 - `src/FeedbackButton.test.jsx` - Feedback button functionality
@@ -122,16 +135,26 @@ The authorization code flow provides enhanced security:
 1. Frontend receives authorization code from Google (not a token)
 2. Code is sent to backend via HTTPS POST
 3. Backend securely exchanges code for access token using Client Secret
-4. Token is stored in an HttpOnly cookie (inaccessible to JavaScript)
+4. Tokens (access, refresh, expiry date) are stored in server session; access token never sent to frontend
 5. User profile data (name, email, picture) is returned to frontend and stored in React state
+6. Token expiry date is returned to frontend to enable proactive refresh scheduling
 
-Auth state is centralized in `AuthContext`, accessed via the `useAuth()` hook throughout the app.
+**Token Refresh & Session Expiry:**
+- Frontend schedules a proactive refresh 60 seconds before token expiry
+- When scheduled time arrives, `useGoogleAuth` calls `silentRefresh()` with `prompt: 'none'`
+- Silent refresh uses the stored `refresh_token` to obtain a new access token server-side
+- If silent refresh fails, `sessionExpired` flag is set and a banner prompts user to sign in again
+- Session expiry detection happens automatically — no manual intervention needed
+
+Auth state is centralized in `AuthContext`, accessed via the `useAuth()` hook throughout the app. Context provides: `user`, `login`, `logout`, `error`, `setError`, `isLoading`, `setIsLoading`, `sessionExpired`, `setSessionExpired`, `needsRefresh`, `setNeedsRefresh`.
 
 ### Components
+
 - **FeedbackButton** - Opens GitHub issue creation dialog. Props:
   - `repositoryUrl` (string, optional) - GitHub repository URL
 - **LoginButton** - Google Sign-in button. Visible only when user is logged out.
 - **UserProfile** - Displays user name, email, and avatar. Includes Sign out button.
+- **SessionExpiredBanner** - Displays dismissible banner when session expires. Reads `sessionExpired` flag from `AuthContext`.
 
 ### Key Patterns
 - Components are functional and use React hooks
@@ -192,6 +215,13 @@ function MyComponent() {
 
 **Security Note:** Access tokens are **not** exposed to the frontend. All authenticated API calls to Google must go through the backend using the stored access token (via the HttpOnly session cookie). This prevents token theft via XSS attacks.
 
+### Backend API Endpoints
+
+- **POST /api/auth/google** — OAuth code exchange. Accepts `{ code }`. Returns `{ user, expiry_date }`. Stores access/refresh tokens in session.
+- **GET /api/auth/user** — Returns session user or null. Returns `{ user, expiry_date }` or `{ user: null, expiry_date: null }`.
+- **POST /api/auth/refresh** — Server-side token refresh using stored refresh_token. Returns `{ success: true, expiry_date }` or 401 on failure.
+- **POST /api/auth/logout** — Destroys session and clears session cookie. Returns `{ success: true }`.
+
 ### Using the FeedbackButton Component
 
 ```jsx
@@ -232,11 +262,15 @@ ClaudeTest/
 │   ├── FeedbackButton.test.jsx            # Feedback button tests
 │   ├── setupTests.js                      # Jest setup file
 │   ├── auth/
-│   │   ├── AuthContext.jsx                # Auth state provider & useAuth hook
-│   │   ├── AuthContext.test.jsx           # Auth context tests (12 tests)
-│   │   ├── useGoogleAuth.js               # OAuth authorization code flow hook
-│   │   ├── useGoogleAuth.test.js          # useGoogleAuth tests (13 tests)
-│   │   └── error-handling.test.js         # Comprehensive error scenarios (12 tests)
+│   │   ├── AuthContext.jsx                # Auth state provider & useAuth hook + token refresh scheduling
+│   │   ├── AuthContext.test.jsx           # Auth context tests (16 tests)
+│   │   ├── useGoogleAuth.js               # OAuth authorization code flow hook + silent refresh
+│   │   ├── useGoogleAuth.test.js          # useGoogleAuth tests (14 tests)
+│   │   ├── error-handling.test.js         # Comprehensive error scenarios (12 tests)
+│   │   └── token-refresh.test.js          # Token refresh timer tests (5 tests)
+│   ├── utils/
+│   │   ├── fetchWithAuth.js               # 401-intercepting fetch wrapper
+│   │   └── fetchWithAuth.test.js          # fetchWithAuth tests (7 tests)
 │   └── components/
 │       ├── LoginButton.jsx                # Google Sign-in button
 │       ├── LoginButton.test.jsx           # Login button tests (4 tests)
@@ -245,7 +279,10 @@ ClaudeTest/
 │       ├── UserProfile.test.jsx           # User profile tests
 │       ├── AuthError.jsx                  # Error display component
 │       ├── AuthError.test.jsx             # AuthError tests (6 tests)
-│       └── AuthError.css                  # Error component styles
+│       ├── AuthError.css                  # Error component styles
+│       ├── SessionExpiredBanner.jsx       # Session expiry notification banner
+│       ├── SessionExpiredBanner.test.jsx  # Banner tests (6 tests)
+│       └── SessionExpiredBanner.css       # Banner styles
 └── node_modules/                          # Dependencies (generated by npm)
 ```
 

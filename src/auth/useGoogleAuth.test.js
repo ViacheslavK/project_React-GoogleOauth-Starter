@@ -232,4 +232,61 @@ describe('useGoogleAuth', () => {
     // Silent refresh errors may or may not set error state depending on implementation
     expect(refreshConfig.onError).toBeDefined();
   });
+
+  // ============ SESSION EXPIRY INTEGRATION ============
+  test('silentRefresh onError sets sessionExpired to true', async () => {
+    let refreshConfig;
+    useGoogleLogin.mockImplementation((config) => {
+      if (config.prompt === 'none') {
+        refreshConfig = config;
+      }
+      return jest.fn();
+    });
+
+    let contextSessionExpired;
+    function TestComponent() {
+      const { sessionExpired } = useAuth();
+      contextSessionExpired = sessionExpired;
+      useGoogleAuth();
+      return null;
+    }
+
+    renderHook(() => TestComponent(), { wrapper });
+
+    act(() => {
+      refreshConfig.onError({ error: 'popup_closed_by_user' });
+    });
+
+    await waitFor(() => {
+      expect(contextSessionExpired).toBe(true);
+    });
+  });
+
+  test('needsRefresh triggers silentRefresh call', async () => {
+    const mockSilentRefresh = jest.fn();
+    useGoogleLogin.mockImplementation((config) => {
+      if (config.prompt === 'none') {
+        return mockSilentRefresh;
+      }
+      return jest.fn();
+    });
+
+    let contextSetNeedsRefresh;
+    function TestComponent() {
+      const { setNeedsRefresh } = useAuth();
+      contextSetNeedsRefresh = setNeedsRefresh;
+      useGoogleAuth();
+      return null;
+    }
+
+    renderHook(() => TestComponent(), { wrapper });
+
+    act(() => {
+      contextSetNeedsRefresh(true);
+    });
+
+    await waitFor(() => {
+      expect(mockSilentRefresh).toHaveBeenCalled();
+    });
+  });
 });

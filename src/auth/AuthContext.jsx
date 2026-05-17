@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -13,11 +13,24 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const refreshTimerRef = useRef(null);
   const apiUrl = getApiUrl();
 
-  const login = (userData) => {
+  const scheduleRefresh = (expiryMs) => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    const delay = expiryMs - Date.now() - 60_000;
+    if (delay > 0) {
+      refreshTimerRef.current = setTimeout(() => setNeedsRefresh(true), delay);
+    }
+  };
+
+  const login = (userData, expiryDate = null) => {
     setUser(userData);
-    setError(null); // Clear error on successful login
+    setError(null);
+    setSessionExpired(false);
+    if (expiryDate) scheduleRefresh(expiryDate);
   };
 
   const logout = async () => {
@@ -30,7 +43,9 @@ export function AuthProvider({ children }) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
-      setError(null); // Clear error on logout
+      setError(null);
+      setSessionExpired(false);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     }
   };
 
@@ -42,9 +57,9 @@ export function AuthProvider({ children }) {
         });
 
         if (response.ok) {
-          const { user: sessionUser } = await response.json();
+          const { user: sessionUser, expiry_date } = await response.json();
           if (sessionUser) {
-            setUser(sessionUser);
+            login(sessionUser, expiry_date || null);
           }
         }
       } catch (error) {
@@ -58,7 +73,21 @@ export function AuthProvider({ children }) {
   }, [apiUrl]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, error, setError, isLoading, setIsLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        error,
+        setError,
+        isLoading,
+        setIsLoading,
+        sessionExpired,
+        setSessionExpired,
+        needsRefresh,
+        setNeedsRefresh,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

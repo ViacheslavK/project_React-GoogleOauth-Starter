@@ -4,20 +4,15 @@ import { AuthProvider } from './auth/AuthContext';
 import { LoginButton } from './components/LoginButton';
 import { UserProfile } from './components/UserProfile';
 import { AuthError } from './components/AuthError';
+import { SessionExpiredBanner } from './components/SessionExpiredBanner';
 import './App.css';
 
 const getClientId = () => {
-  if (typeof process !== 'undefined' && process.env.VITE_GOOGLE_CLIENT_ID) {
-    return process.env.VITE_GOOGLE_CLIENT_ID;
-  }
-  return null;
+  return import.meta.env.VITE_GOOGLE_CLIENT_ID || null;
 };
 
 const getGithubRepoUrl = () => {
-  if (typeof process !== 'undefined' && process.env.VITE_GITHUB_REPO_URL) {
-    return process.env.VITE_GITHUB_REPO_URL;
-  }
-  return null;
+  return import.meta.env.VITE_GITHUB_REPO_URL || null;
 };
 
 function AppContent() {
@@ -26,6 +21,7 @@ function AppContent() {
   return (
     <div className="App">
       <AuthError />
+      <SessionExpiredBanner />
       <header className="App-header">
         <h1>Claude Test App</h1>
         <div className="header-controls">

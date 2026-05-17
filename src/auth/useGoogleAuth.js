@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from './AuthContext';
 
@@ -9,7 +10,7 @@ const getApiUrl = () => {
 };
 
 export function useGoogleAuth() {
-  const { login, setError, setIsLoading } = useAuth();
+  const { login, setError, setIsLoading, setSessionExpired, needsRefresh, setNeedsRefresh } = useAuth();
   const apiUrl = getApiUrl();
 
   const googleLogin = useGoogleLogin({
@@ -29,8 +30,8 @@ export function useGoogleAuth() {
           throw new Error(errorData.error || `Authentication failed: ${response.status}`);
         }
 
-        const { user } = await response.json();
-        login(user);
+        const { user, expiry_date } = await response.json();
+        login(user, expiry_date || null);
       } catch (error) {
         console.error('Failed to authenticate:', error);
         setError(error.message || 'Failed to authenticate. Please try again.');
@@ -62,18 +63,26 @@ export function useGoogleAuth() {
           throw new Error('Token refresh failed');
         }
 
-        const { user } = await response.json();
-        login(user);
+        const { user, expiry_date } = await response.json();
+        login(user, expiry_date || null);
       } catch (error) {
         console.error('Silent refresh failed:', error);
+        setSessionExpired(true);
         setError('Session expired. Please log in again.');
       }
     },
     onError: (err) => {
       console.error('Silent refresh error:', err);
-      // Silent refresh failure is expected when session expired - don't show error
+      setSessionExpired(true);
     },
   });
+
+  useEffect(() => {
+    if (needsRefresh) {
+      setNeedsRefresh(false);
+      silentRefresh();
+    }
+  }, [needsRefresh, setNeedsRefresh, silentRefresh]);
 
   return { googleLogin, silentRefresh };
 }
